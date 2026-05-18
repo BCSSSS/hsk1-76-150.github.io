@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSK Survival Quiz</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- React & ReactDOM CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <!-- Babel CDN untuk mengompilasi JSX di browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function HSKQuizApp() {
+            const words = [
+                ['开','kāi','buka'],
+                ['开车','kāi chē','menyetir mobil'],
+                ['看','kàn','melihat'],
+                ['看病','kàn bìng','mengobati'],
+                ['看见','kàn jiàn','melihat'],
+                ['can','kě yǐ','boleh'],
+                ['课','kè','pelajaran'],
+                ['口','kǒu','mulut'],
+                ['块','kuài','sepotong (koin)'],
+                ['来','lái','datang'],
+                ['老师','lǎo shī','guru'],
+                ['了','le','sudah'],
+                ['冷','lěng','dingin'],
+                ['里','lǐ','dalam'],
+                ['两','liǎng','dua (barang)'],
+                ['零','líng','nol'],
+                ['六','liù','enam'],
+                ['妈妈','mā ma','ibu'],
+                ['吗','ma','apakah'],
+                ['买','mǎi','beli'],
+                ['卖','mài','jual'],
+                ['忙','máng','sibuk'],
+                ['猫','māo','kucing'],
+                ['没关系','méi guān xi','tak apa apa'],
+                ['没事','méi shì','tak masalah'],
+                ['没有','méi yǒu','tidak ada'],
+                ['妹妹','mèi mei','adik (pr)'],
+                ['们','men','(beberapa org)'],
+                ['米饭','mǐ fàn','nasi putih'],
+                ['面包','miàn bāo','roti'],
+                ['面条儿','miàn tiáor','mie'],
+                ['明天','míng tiān','tahun depan'],
+                ['明天','míng tiān','besok'],
+                ['名字','míng zi','nama'],
+                ['哪','nǎ','mana'],
+                ['哪个','nǎ gè','yang mana'],
+                ['哪里','nǎ lǐ','dimana'],
+                ['哪儿','nǎr','dimana'],
+                ['哪些','nǎ xiē','yang mana'],
+                ['那','nà','itu'],
+                ['那边','nà biān','sana'],
+                ['那个','nà gè','yang itu'],
+                ['那里','nà lǐ','disana'],
+                ['那儿','nàr','disana'],
+                [' those','nà xiē','yang itu'],
+                ['男','nán','pria'],
+                ['男朋友','nán péng you','pacar cewek'],
+                ['呢','ne','kata bantu'],
+                ['能','néng','bisa'],
+                ['你','nǐ','kamu'],
+                ['你好','nǐ hǎo','apakah kabar'],
+                ['你们','nǐ men','kalian'],
+                ['年','nián','tahun'],
+                ['您','nín','anda'],
+                ['牛奶','niú nǎi','susu'],
+                ['女','nǚ','perempuan'],
+                ['女儿','nǚ ér','anak pr'],
+                ['女朋友','nǚ péng you','pacar cowok'],
+                ['女士','nǚ shì','wanita lebih tua'],
+                ['朋友','péng you','teman'],
+                ['便宜','pián yi','murah'],
+                ['漂亮','piào liang','cantik'],
+                ['苹果','píng guǒ','apel'],
+                ['七','qī','tujuh'],
+                ['起床','qǐ chuáng','bangun (tidur)'],
+                ['千','qiān','seribu'],
+                ['前','qián','dulu'],
+                ['钱','qián','uang'],
+                ['请','qǐng','silahkan'],
+                ['请问','qǐng wèn','menanyakan'],
+                ['去','qù','pergi ke'],
+                ['去年','qù nián','tahun lalu'],
+                ['热','rè','panas'],
+                ['人','rén','orang'],
+                ['认识','rèn shi','kenal']
+            ];
+
+            const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+
+            const [mode, setMode] = useState('quiz');
+            const [list, setList] = useState(shuffle(words));
+            const [index, setIndex] = useState(0);
+            const [pinyin, setPinyin] = useState('');
+            const [meaning, setMeaning] = useState('');
+            const [score, setScore] = useState(0);
+            const [finished, setFinished] = useState(false);
+            const [showResult, setShowResult] = useState(false);
+            const [timeLeft, setTimeLeft] = useState(1800);
+            const [started, setStarted] = useState(false);
+            const [history, setHistory] = useState([]);
+            const [answered, setAnswered] = useState({});
+            const [wrongAnswers, setWrongAnswers] = useState([]);
+
+            const totalQuestions = words.length;
+            const maxScore = totalQuestions * 2;
+            const finalScore100 = Math.round((score / maxScore) * 100);
+
+            const current = list[index];
+
+            useEffect(() => {
+                if (mode === 'hardcore' && started && !finished && timeLeft > 0) {
+                    const timer = setInterval(() => {
+                        setTimeLeft((prev) => prev - 1);
+                    }, 1000);
+
+                    return () => clearInterval(timer);
+                }
+            }, [mode, started, finished, timeLeft]);
+
+            const normalize = (text) =>
+                text
+                    .toLowerCase()
+                    .replace(/[âáǎà]/g, 'a')
+                    .replace(/[êéěè]/g, 'e')
+                    .replace(/[îíǐì]/g, 'i')
+                    .replace(/[ôóǒò]/g, 'o')
+                    .replace(/[ûúǔù]/g, 'u');
+
+            const checkAnswer = () => {
+                let earned = 0;
+
+                if (
+                    normalize(pinyin).trim() !== '' &&
+                    normalize(pinyin) === normalize(current[1])
+                ) {
+                    earned += 1;
+                }
+
+                if (
+                    normalize(meaning).trim() !== '' && (
+                        normalize(current[2]).includes(normalize(meaning)) ||
+                        normalize(meaning).includes(normalize(current[2]))
+                    )
+                ) {
+                    earned += 1;
+                }
+
+                setScore((prev) => prev + earned);
+
+                if (earned < 2) {
+                    setWrongAnswers((prev) => [
+                        ...prev,
+                        {
+                            hanzi: current[0],
+                            pinyin: current[1],
+                            meaning: current[2]
+                        }
+                    ]);
+                }
+
+                setAnswered((prev) => ({
+                    ...prev,
+                    [index]: {
+                        pinyin: current[1],
+                        meaning: current[2],
+                        revealed: true
+                    }
+                }));
+
+                setShowResult(true);
+            };
+
+            const nextQuestion = () => {
+                setShowResult(false);
+                setPinyin('');
+                setMeaning('');
+
+                if (index + 1 >= list.length) {
+                    setFinished(true);
+
+                    if (mode === 'hardcore') {
+                        const finalScore = Math.round((score / maxScore) * 100);
+
+                        setHistory((prev) => [
+                            {
+                                nilai: finalScore,
+                                waktu: `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`
+                            },
+                            ...prev
+                        ]);
+                    }
+                } else {
+                    setIndex((prev) => prev + 1);
+                    setShowResult(false);
+                }
+            };
+
+            const prevQuestion = () => {
+                if (index > 0) {
+                    setIndex((prev) => prev - 1);
+                    setShowResult(false);
+                }
+            };
+
+            const resetQuiz = () => {
+                setList(shuffle(words));
+                setIndex(0);
+                setPinyin('');
+                setMeaning('');
+                setScore(0);
+                setFinished(false);
+                setShowResult(false);
+                setTimeLeft(1800);
+                setStarted(false);
+                setAnswered({});
+                setWrongAnswers([]);
+            };
+
+            return (
+                <div className="p-6">
+                    <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-xl p-6">
+                        <h1 className="text-3xl font-bold text-center mb-6">
+                            HSK Survival Quiz (76-150)
+                        </h1>
+
+                        <div className="flex gap-3 mb-6">
+                            <button
+                                onClick={() => setMode('quiz')}
+                                className={`px-4 py-2 rounded-2xl font-bold ${mode === 'quiz' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                            >
+                                Quiz
+                            </button>
+
+                            <button
+                                onClick={() => setMode('hardcore')}
+                                className={`px-4 py-2 rounded-2xl font-bold ${mode === 'hardcore' ? 'bg-purple-500 text-white' : 'bg-gray-200'}`}
+                            >
+                                Hardcore
+                            </button>
+
+                            <button
+                                onClick={resetQuiz}
+                                className="px-4 py-2 rounded-2xl font-bold bg-green-500 text-white"
+                            >
+                                Acak Ulang
+                            </button>
+                        </div>
+
+                        {mode === 'hardcore' && (
+                            <div className="flex items-center gap-3 mb-4">
+                                {!started && (
+                                    <button
+                                        onClick={() => setStarted(true)}
+                                        className="bg-purple-500 text-white px-4 py-2 rounded-2xl font-bold"
+                                    >
+                                        ▶ Mulai Timer
+                                    </button>
+                                )}
+
+                                <div className="bg-purple-100 text-purple-700 px-4 py-2 rounded-2xl font-bold">
+                                    ⏰ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+                                </div>
+                            </div>
+                        )}
+
+                        {!finished ? (
+                            <>
+                                <div className="text-center mb-6">
+                                    <p className="text-lg text-gray-500">
+                                        Soal {index + 1} / {totalQuestions}
+                                    </p>
+
+                                    <h2 className="text-6xl font-bold my-6">
+                                        {current[0]}
+                                    </h2>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {answered[index]?.revealed && showResult && (
+                                        <div className="bg-gray-100 rounded-2xl p-4 text-left">
+                                            <p><strong>Jawaban Benar:</strong></p>
+                                            <p>Pinyin: {answered[index].pinyin}</p>
+                                            <p>Arti: {answered[index].meaning}</p>
+                                        </div>
+                                    )}
+
+                                    <input
+                                        type="text"
+                                        value={pinyin}
+                                        onChange={(e) => setPinyin(e.target.value)}
+                                        placeholder="Ketik pinyin bernada"
+                                        className="w-full border-2 rounded-2xl px-4 py-3 outline-none focus:border-blue-400"
+                                    />
+
+                                    <input
+                                        type="text"
+                                        value={meaning}
+                                        onChange={(e) => setMeaning(e.target.value)}
+                                        placeholder="Ketik arti Indonesia"
+                                        className="w-full border-2 rounded-2xl px-4 py-3 outline-none focus:border-blue-400"
+                                    />
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={prevQuestion}
+                                            disabled={index === 0}
+                                            className="flex-1 bg-gray-400 text-white py-3 rounded-2xl font-bold disabled:opacity-50"
+                                        >
+                                            Sebelumnya
+                                        </button>
+
+                                        {!showResult ? (
+                                            <button
+                                                onClick={checkAnswer}
+                                                className="flex-1 bg-blue-500 text-white py-3 rounded-2xl font-bold"
+                                            >
+                                                Kirim Jawaban
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={nextQuestion}
+                                                className="flex-1 bg-green-500 text-white py-3 rounded-2xl font-bold"
+                                            >
+                                                Selanjutnya
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center">
+                                <h2 className="text-4xl font-bold mb-4">
+                                    Selesai 🎉
+                                </h2>
+
+                                <p className="text-2xl mb-4">
+                                    Nilai: {finalScore100} / 100
+                                </p>
+
+                                <button
+                                    onClick={resetQuiz}
+                                    className="bg-green-500 text-white px-6 py-3 rounded-2xl font-bold"
+                                >
+                                    Main Lagi
+                                </button>
+                            </div>
+                        )}
+
+                        {mode === 'hardcore' && history.length > 0 && (
+                            <div className="mt-8 bg-purple-100 rounded-3xl p-4">
+                                <h3 className="font-bold text-xl mb-3">
+                                    📜 History Nilai
+                                </h3>
+
+                                <div className="space-y-2">
+                                    {history.map((item, i) => (
+                                        <div key={i} className="bg-white rounded-2xl p-3">
+                                            <p>#{i + 1} • {item.nilai}/100 • Sisa {item.waktu}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {wrongAnswers.length > 0 && (
+                            <div className="mt-8 bg-red-100 rounded-3xl p-4 text-left">
+                                <h3 className="font-bold text-xl mb-3">
+                                    ❌ Soal Yang Salah
+                                </h3>
+
+                                <div className="space-y-3">
+                                    {wrongAnswers.map((item, i) => (
+                                        <div key={i} className="bg-white rounded-2xl p-3">
+                                            <p className="text-2xl font-bold">{item.hanzi}</p>
+                                            <p>Pinyin: {item.pinyin}</p>
+                                            <p>Arti: {item.meaning}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<HSKQuizApp />);
+    </script>
+</body>
+</html>
