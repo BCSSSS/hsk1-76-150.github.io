@@ -215,19 +215,29 @@
         //   FLASHCARD
         // ══════════════════════════════════════════
         function Flashcard({ session, setSession }) {
-            const getList = (s) => {
+            const [isShuffled, setIsShuffled] = useState(false);
+            const [shuffledList, setShuffledList] = useState([]);
+
+            const getBase = (s) => {
                 const third = Math.ceil(WORDS.length / 3);
                 if (s === 0) return WORDS;
                 if (s === 1) return WORDS.slice(0, third);
                 if (s === 2) return WORDS.slice(third, third * 2);
                 return WORDS.slice(third * 2);
             };
-            const list = getList(session);
+
+            const list = isShuffled ? shuffledList : getBase(session);
             const [idx, setIdx] = useState(0);
             const [flipped, setFlipped] = useState(false);
             const [done, setDone] = useState(false);
 
-            useEffect(() => { setIdx(0); setFlipped(false); setDone(false); }, [session]);
+            useEffect(() => { setIdx(0); setFlipped(false); setDone(false); }, [session, isShuffled]);
+
+            const toggleShuffle = () => {
+                const newShuffled = shuffle([...getBase(session)]);
+                setShuffledList(newShuffled);
+                setIsShuffled(p => !p);
+            };
 
             const cur = list[idx] || WORDS[0];
             const progress = ((idx + 1) / list.length) * 100;
@@ -245,9 +255,22 @@
 
             return (
                 <>
-                {/* Sesi selector */}
+                {/* Sesi selector + shuffle */}
                 <div style={{marginBottom:12}}>
-                    <p style={{fontSize:11,fontWeight:700,color:'#94a3b8',textAlign:'center',letterSpacing:2,textTransform:'uppercase',marginBottom:6}}>Sesi Belajar</p>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                        <p style={{fontSize:11,fontWeight:700,color:'#94a3b8',letterSpacing:2,textTransform:'uppercase',margin:0}}>Sesi Belajar</p>
+                        <button onClick={toggleShuffle} style={{
+                            display:'flex', alignItems:'center', gap:5,
+                            background: isShuffled ? '#6366f1' : 'rgba(255,255,255,0.6)',
+                            border: `1px solid ${isShuffled ? '#6366f1' : 'rgba(99,102,241,0.2)'}`,
+                            borderRadius:10, padding:'5px 10px', cursor:'pointer',
+                            fontSize:11, fontWeight:800,
+                            color: isShuffled ? '#fff' : '#818cf8',
+                            transition:'all 0.2s',
+                        }}>
+                            🔀 {isShuffled ? 'Diacak' : 'Urut'}
+                        </button>
+                    </div>
                     <div style={{display:'flex',gap:5,background:'rgba(255,255,255,0.5)',border:'1px solid rgba(99,102,241,0.12)',borderRadius:14,padding:5}}>
                         {[['Semua',0],['Sesi 1',1],['Sesi 2',2],['Sesi 3',3]].map(([l,s]) => (
                             <button key={s} onClick={() => setSession(s)} style={{
@@ -337,7 +360,8 @@
         //   QUIZ MODE (timer 30 menit, nada ketat)
         // ══════════════════════════════════════════
         function QuizMode() {
-            const list = WORDS; // urutan asli, tidak diacak
+            const [isShuffled, setIsShuffled] = useState(false);
+            const [list, setList] = useState(WORDS);
             const [idx, setIdx] = useState(0);
             const [pinyin, setPinyin] = useState('');
             const [meaning, setMeaning] = useState('');
@@ -398,12 +422,23 @@
                 else { setIdx(p => p + 1); setTimeout(() => inputRef.current?.focus(), 50); }
             };
 
+            const toggleShuffle = () => {
+                const newList = !isShuffled ? shuffle([...WORDS]) : WORDS;
+                setList(newList);
+                setIsShuffled(p => !p);
+                setIdx(0); setPinyin(''); setMeaning(''); setScore(0);
+                setAnswered({}); setWrongList([]); setShowResult(false);
+                setFinished(false); setTimeLeft(1800); setStarted(false);
+            };
+
             const finalScore = Math.round((score / maxScore) * 100);
 
             if (finished) return (
                 <FinishScreen score={finalScore} label="Quiz" color="#059669"
                     extra={started ? `Sisa waktu: ${fmtTime(timeLeft)}` : ''}
                     wrongList={wrongList} onRetry={() => {
+                        const newList = isShuffled ? shuffle([...WORDS]) : WORDS;
+                        setList(newList);
                         setIdx(0); setPinyin(''); setMeaning(''); setScore(0);
                         setAnswered({}); setWrongList([]); setShowResult(false);
                         setFinished(false); setTimeLeft(1800); setStarted(false);
@@ -412,27 +447,44 @@
 
             return (
                 <>
-                {/* Timer */}
-                <div style={{
-                    display:'flex', alignItems:'center', justifyContent:'space-between',
-                    background: danger ? 'rgba(254,226,226,0.8)' : 'rgba(236,253,245,0.8)',
-                    border: `1px solid ${danger ? '#fca5a5' : '#a7f3d0'}`,
-                    borderRadius:16, padding:'10px 16px', marginBottom:14,
-                    backdropFilter:'blur(8px)', transition:'all 0.3s',
-                }}>
-                    <span style={{fontSize:12,fontWeight:700,color: danger ? '#dc2626' : '#059669'}}>⏱️ Timer Quiz</span>
-                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                        {!started && (
-                            <button onClick={() => setStarted(true)} style={{
-                                background:'#059669', color:'#fff', border:'none', borderRadius:8,
-                                padding:'5px 12px', fontSize:11, fontWeight:800, cursor:'pointer',
-                            }}>▶ MULAI</button>
-                        )}
-                        <span style={{
-                            fontSize:14, fontWeight:900, fontFamily:'monospace',
-                            color: danger ? '#dc2626' : '#059669',
-                            ...(danger && {animation:'blink 0.7s ease infinite'}),
-                        }}>{fmtTime(timeLeft)}</span>
+                {/* Shuffle + Timer row */}
+                <div style={{display:'flex',gap:8,marginBottom:14}}>
+                    {/* Shuffle toggle */}
+                    <button onClick={toggleShuffle} style={{
+                        display:'flex', alignItems:'center', gap:5, flexShrink:0,
+                        background: isShuffled ? '#059669' : 'rgba(255,255,255,0.7)',
+                        border: `1px solid ${isShuffled ? '#059669' : 'rgba(16,185,129,0.25)'}`,
+                        borderRadius:12, padding:'10px 12px', cursor:'pointer',
+                        fontSize:11, fontWeight:800,
+                        color: isShuffled ? '#fff' : '#059669',
+                        backdropFilter:'blur(8px)', transition:'all 0.2s',
+                        boxShadow: isShuffled ? '0 2px 8px #05996944' : 'none',
+                    }}>
+                        🔀 {isShuffled ? 'Diacak' : 'Urut'}
+                    </button>
+
+                    {/* Timer */}
+                    <div style={{
+                        flex:1, display:'flex', alignItems:'center', justifyContent:'space-between',
+                        background: danger ? 'rgba(254,226,226,0.8)' : 'rgba(236,253,245,0.8)',
+                        border: `1px solid ${danger ? '#fca5a5' : '#a7f3d0'}`,
+                        borderRadius:12, padding:'10px 14px',
+                        backdropFilter:'blur(8px)', transition:'all 0.3s',
+                    }}>
+                        <span style={{fontSize:11,fontWeight:700,color: danger ? '#dc2626' : '#059669'}}>⏱️ Timer</span>
+                        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                            {!started && (
+                                <button onClick={() => setStarted(true)} style={{
+                                    background:'#059669', color:'#fff', border:'none', borderRadius:7,
+                                    padding:'4px 10px', fontSize:11, fontWeight:800, cursor:'pointer',
+                                }}>▶</button>
+                            )}
+                            <span style={{
+                                fontSize:13, fontWeight:900, fontFamily:'monospace',
+                                color: danger ? '#dc2626' : '#059669',
+                                ...(danger && {animation:'blink 0.7s ease infinite'}),
+                            }}>{fmtTime(timeLeft)}</span>
+                        </div>
                     </div>
                 </div>
 
