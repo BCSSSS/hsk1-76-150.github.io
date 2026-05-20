@@ -584,17 +584,19 @@
             const [score, setScore] = useState(0);
             const [pinyin, setPinyin] = useState('');
             const [meaning, setMeaning] = useState('');
-            const [phase, setPhase] = useState('input'); // 'input' | 'result' | 'dead'
+            const [phase, setPhase] = useState('input');
             const [lastCorrect, setLastCorrect] = useState(null);
             const [shake, setShake] = useState(false);
             const [finished, setFinished] = useState(false);
             const [wrongList, setWrongList] = useState([]);
             const [history, setHistory] = useState([]);
             const [heartFlash, setHeartFlash] = useState(false);
+            const [slowBonus, setSlowBonus] = useState(0); // soal tersisa efek slow (2x timer)
             const inputRef = useRef(null);
 
             const cur = list[idx] || WORDS[0];
             const maxScore = list.length * 2;
+            const timerMax = slowBonus > 0 ? 30 : 15;
 
             // Timer
             useEffect(() => {
@@ -638,10 +640,10 @@
                 let earned = 0;
                 if (pinyinOk) earned++;
                 if (meaningOk) earned++;
-                // Bonus streak ≥5
                 const newStreak = allOk ? streak + 1 : 0;
-                if (allOk && newStreak >= 5) earned += 1; // bonus combo
-                const newScore = score + earned;
+                // Bonus streak ≥5: timer melambat 2x selama 3 soal ke depan
+                if (allOk && newStreak % 5 === 0) setSlowBonus(3);
+                const newScore = Math.min(score + earned, maxScore);
                 setScore(newScore);
                 setStreak(newStreak);
                 setMaxStreak(p => Math.max(p, newStreak));
@@ -672,7 +674,11 @@
                     setHistory(p => [{ nilai: finalVal, soal: nextIdx, streak: maxStreak }, ...p]);
                 } else {
                     setIdx(nextIdx);
-                    setTimeLeft(15);
+                    setSlowBonus(p => {
+                        const next = Math.max(0, p - 1);
+                        setTimeLeft(next > 0 ? 30 : 15);
+                        return next;
+                    });
                     setPinyin(''); setMeaning('');
                     setPhase('input');
                     setTimeout(() => inputRef.current?.focus(), 50);
@@ -685,10 +691,10 @@
                 setIdx(0); setTimeLeft(15); setLives(3); setStreak(0); setMaxStreak(0);
                 setScore(0); setPinyin(''); setMeaning('');
                 setPhase('input'); setLastCorrect(null); setShake(false);
-                setFinished(false); setWrongList([]);
+                setFinished(false); setWrongList([]); setSlowBonus(0);
             };
 
-            const timerPct = (timeLeft / 15) * 100;
+            const timerPct = (timeLeft / timerMax) * 100;
             const timerDanger = timeLeft <= 5;
             const finalScore = Math.round((score / maxScore) * 100);
 
@@ -760,17 +766,29 @@
                                 }}>❤️</span>
                             ))}
                         </div>
-                        {/* Streak */}
-                        <div style={{
-                            display:'flex', alignItems:'center', gap:4,
-                            background: streak >= 5 ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'rgba(251,191,36,0.12)',
-                            border: `1px solid ${streak >= 5 ? '#fbbf24' : 'rgba(251,191,36,0.2)'}`,
-                            borderRadius:10, padding:'4px 10px',
-                        }}>
-                            <span style={{fontSize:14}}>🔥</span>
-                            <span style={{fontSize:13,fontWeight:900,color: streak >= 5 ? '#fff' : '#f59e0b'}}>
-                                {streak} {streak >= 5 && '· COMBO!'}
-                            </span>
+                        {/* Streak + Slow Bonus */}
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                            <div style={{
+                                display:'flex', alignItems:'center', gap:4,
+                                background: streak >= 5 ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'rgba(251,191,36,0.12)',
+                                border: `1px solid ${streak >= 5 ? '#fbbf24' : 'rgba(251,191,36,0.2)'}`,
+                                borderRadius:10, padding:'4px 10px',
+                            }}>
+                                <span style={{fontSize:14}}>🔥</span>
+                                <span style={{fontSize:13,fontWeight:900,color: streak >= 5 ? '#fff' : '#f59e0b'}}>
+                                    {streak}
+                                </span>
+                            </div>
+                            {slowBonus > 0 && (
+                                <div style={{
+                                    display:'flex',alignItems:'center',gap:3,
+                                    background:'linear-gradient(135deg,#dbeafe,#eff6ff)',
+                                    border:'1px solid #93c5fd', borderRadius:8, padding:'2px 8px',
+                                }}>
+                                    <span style={{fontSize:11}}>⚡</span>
+                                    <span style={{fontSize:10,fontWeight:900,color:'#2563eb'}}>SLOW ×{slowBonus}</span>
+                                </div>
+                            )}
                         </div>
                         {/* Soal */}
                         <span style={{fontSize:12,fontWeight:800,color:'#dc2626'}}>{idx+1}/{list.length}</span>
@@ -821,7 +839,7 @@
                             }}>
                                 {lastCorrect.allOk
                                     ? <p style={{fontSize:14,fontWeight:900,color:'#059669',textAlign:'center',margin:0}}>
-                                        ✅ Benar! {streak >= 5 && '🔥 COMBO BONUS +1!'}
+                                        ✅ Benar! {slowBonus > 0 && lastCorrect.streak % 5 === 0 && '⚡ STREAK! Timer 2× lebih lambat!'}
                                       </p>
                                     : <div>
                                         <p style={{fontSize:12,fontWeight:800,color:'#dc2626',margin:'0 0 4px'}}>✗ Jawaban Benar:</p>
